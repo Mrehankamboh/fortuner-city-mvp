@@ -1,56 +1,54 @@
-# Fortuner City MVP (Unity)
+# Fortuner City (Unity)
 
-Playable PC prototype: drive a **Fortis XR** (Fortuner-style SUV) through a procedural city district with NPC traffic, chase/hood camera, HUD, pause/restart, and engine audio.
+## ▶ Play online: **https://fortuner-city.vercel.app**
 
-## Requirements
-- Unity **6000.0 LTS** (Unity 6) or **2022.3 LTS**
-- Modules: Windows Build Support
-- Packages resolve on open: URP + Input System (see `Packages/manifest.json`)
+Runs in Chrome / Edge on a computer (keyboard + mouse). Click the game once, then drive with **W A S D**.
 
-## Open & Play
-1. Install [Unity Hub](https://unity.com/download) → add Unity 6 LTS (or 2022.3).
-2. Hub → **Open** → select folder `fortuner-city-mvp`.
-3. If prompted about Input System, choose **Yes** / Input System Package.
-4. Open scene `Assets/Scenes/CityDrive` (or press Play on `Boot` — it loads CityDrive).
-5. Press **Play**.
+---
 
-City, SUV, traffic, camera, HUD, and audio spawn automatically at runtime (`GameBootstrap` / `AutoSceneStart`).
+An open-city driving game where almost everything is generated in C# at runtime:
+
+- **City** — 8×8 blocks: downtown glass skyscrapers, mid-rise offices and apartments, suburbs, parks, avenues with tree medians, zebra crossings and an elevated ring motorway with ramps
+- **Working traffic signals** at every junction — AI traffic stops at red, pedestrians cross on the zebra when cars are held
+- **Real-size cars** (Fortuner-style SUV plus Haval / Lamborghini / Range Rover / Jaecoo / Land Cruiser / MG-style traffic, no brand logos) and **motorbikes** (CD70-style commuter, sports bike) that lean into corners
+- **People** walking the sidewalks with individual gaits; get out of your car and walk, run or take **any** car or bike (F)
+- **Weapons** (pistol, rifle, shotgun) with car damage, smoke and fire
+- **Engine sound** from a physical model: cylinder pulses through an exhaust pipe and muffler, gearbox, turbo, overrun crackle
+
+Third-party art: [Kenney](https://kenney.nl) (CC0) houses, trees and street props.
 
 ## Controls
-| Key | Action |
-|-----|--------|
-| W / ↑ | Accelerate |
-| S / ↓ | Brake / Reverse |
-| A D / ← → | Steer |
-| Space | Handbrake |
-| C | Chase ↔ Hood camera |
-| Esc | Pause |
-| R | Restart (while paused) |
+| Key | Driving | On foot |
+|-----|---------|---------|
+| W / S | Accelerate / brake, reverse | Run / back |
+| A / D | Steer | Turn (side-step with a gun out) |
+| Shift / Ctrl | — | Sprint / walk |
+| Space | Handbrake | Jump |
+| H | Horn | — |
+| C | Chase ↔ driver's-eye camera | — |
+| F | Get out | Get into the nearest car or bike |
+| 1 / 2 / 3, Q | — | Pistol / rifle / shotgun, holster |
+| Mouse, left click, R | — | Aim, fire, reload |
+| Esc (then R) | Pause (restart) | Pause (restart) |
 
-Gamepad: triggers = throttle/brake, left stick = steer, South button = handbrake.
+## Open in Unity
+1. Install [Unity Hub](https://unity.com/download) and Unity **6000.6.7f1**.
+2. Hub → **Add → Add project from disk** → select the `fortuner-city-mvp` folder.
+3. Open `Assets/Scenes/CityDrive` and press **Play**.
 
-## Windows build
-In Unity menu: **Fortuner City → Build Windows Standalone**  
-Output: `Builds/Windows/FortunerCityMVP.exe`
-
-Or use batchmode (after Editor is installed):
-
-```bat
-"<UnityEditor>\Unity.exe" -quit -batchmode -projectPath "d:\office-work\fortuner-city-mvp" -executeMethod FortunerCity.EditorTools.BuildWindows.Build
-```
+## Builds
+- **Chrome / WebGL:** menu **Fortuner City → Build for Chrome (WebGL)** → `Builds/WebGL` (play locally with `play-in-chrome.bat`)
+- **Windows:** menu **Fortuner City → Build Windows Standalone** → `Builds/Windows/FortunerCityMVP.exe`
 
 ## Project layout
 ```
-Assets/Scripts/Vehicle/   FortunerBuilder, WheelCollider drive, wheel visuals
-Assets/Scripts/City/      Procedural 6×6 block district
-Assets/Scripts/Traffic/   Waypoints + NPC cars
-Assets/Scripts/Camera/    Chase / hood
-Assets/Scripts/UI/        Speed, gear, pause
-Assets/Scripts/Audio/     Procedural engine / tire / crash
-Assets/Scenes/            Boot → CityDrive
-Assets/Editor/            Windows build menu
+Assets/Scripts/City/      City, roads, buildings, traffic signals, motorway, procedural textures
+Assets/Scripts/Vehicle/   Car / bike builders and catalog, arcade drive
+Assets/Scripts/Traffic/   AI traffic and spawner
+Assets/Scripts/People/    Pedestrians and the person builder / animator
+Assets/Scripts/Player/    On-foot player, enter / exit vehicles
+Assets/Scripts/Weapons/   Guns, car damage, effects
+Assets/Scripts/Audio/     Engine model, vehicle audio, synthesised sounds
+Assets/Scripts/Core/      Bootstrap and scene start
+Assets/Editor/            Build menu items
 ```
-
-## Notes
-- In-game name **Fortis XR** — Fortuner silhouette, not Toyota-licensed branding.
-- Art is procedural for MVP; swap meshes later and list licenses in `Assets/Art/LICENSES.md`.

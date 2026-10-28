@@ -19,8 +19,10 @@ namespace FortunerCity.EditorTools
         {
             RuntimeShaders.Ensure();
 
-            // Uncompressed: runs from the simple local server without special HTTP headers
-            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
+            // Gzip keeps the download small; the decompression fallback lets the loader unpack it itself, so the
+            // build runs on any static host (Vercel, the local serve-webgl.js) without special HTTP headers
+            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
+            PlayerSettings.WebGL.decompressionFallback = true;
             PlayerSettings.WebGL.dataCaching = true;
 
             if (!Directory.Exists(OutputDir)) Directory.CreateDirectory(OutputDir);

@@ -5,13 +5,23 @@ namespace FortunerCity.Core
 {
     /// <summary>
     /// Ensures Boot/CityDrive work even if scene YAML has no script references yet.
+    /// Runs for the first scene AND every scene loaded later (Boot → CityDrive in builds, R to restart),
+    /// because RuntimeInitializeOnLoadMethod alone only fires once at startup.
     /// </summary>
     public static class AutoSceneStart
     {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void OnLoad()
         {
-            var scene = SceneManager.GetActiveScene();
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            Ensure(SceneManager.GetActiveScene());
+        }
+
+        static void OnSceneLoaded(Scene scene, LoadSceneMode mode) => Ensure(scene);
+
+        static void Ensure(Scene scene)
+        {
             if (!scene.IsValid()) return;
 
             if (scene.name == "Boot")
