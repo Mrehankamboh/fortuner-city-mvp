@@ -17,8 +17,8 @@ namespace FortunerCity.UI
         GameObject _pausePanel;
         bool _paused;
 
-        const string DriveHelp = "WASD drive  ·  Space handbrake  ·  H horn  ·  C camera  ·  F get out  ·  Esc pause";
-        const string WalkHelp = "W run  ·  Shift+W sprint  ·  Ctrl+W walk  ·  A/D turn  ·  Space jump  ·  F get in  ·  1 pistol  2 rifle  3 shotgun  ·  Esc pause";
+        const string DriveHelp = "WASD drive  ·  Space handbrake  ·  H horn  ·  C camera  ·  F get out  ·  M music  ·  Esc pause";
+        const string WalkHelp = "W run  ·  Shift+W sprint  ·  Ctrl+W walk  ·  A/D turn  ·  Space jump  ·  F get in  ·  1 pistol  2 rifle  3 shotgun  ·  M music  ·  Esc pause";
         const string AimHelp = "Mouse aim  ·  Left click fire  ·  R reload  ·  A/D side-step  ·  1/2/3 switch  ·  Q holster";
 
         public static GameHud Create(PlayerDriveController drive)

@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using FortunerCity.AudioSys;
 using FortunerCity.People;
 using FortunerCity.Vehicle;
 
@@ -42,7 +41,6 @@ namespace FortunerCity.Traffic
                     dir.y = 0f;
                     if (dir.sqrMagnitude > 0.01f)
                         car.transform.rotation = Quaternion.LookRotation(dir.normalized, Vector3.up);
-                    TrafficAudio.Attach(car, car.GetComponent<VehicleInfo>().engine);
                     list.Add(car);
                     spawned++;
                 }

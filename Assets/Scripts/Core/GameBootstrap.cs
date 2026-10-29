@@ -84,6 +84,7 @@ namespace FortunerCity.Core
 
             // Audio
             VehicleAudio.Attach(player, drive);
+            MusicPlayer.Create();   // background music made in code (M mutes)
 
             // People on the sidewalks and in the parks
             PedestrianSpawner.Spawn(city.root);

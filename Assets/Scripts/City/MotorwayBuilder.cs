@@ -139,11 +139,16 @@ namespace FortunerCity.City
         static void BuildSide(Transform f, SweepPath path, int order, int sideIndex)
         {
             float L = path.Length;
-            float connectorX = CityBuilder.Line(1);                       // street that leads to the ramp
-            float rampStart = connectorX + CityBuilder.StreetWidth * 0.5f;
+            // Diamond interchange on the central avenue: each carriageway has an exit before it and an entry after it
+            float rampStart = CityBuilder.AvenueWidth * 0.5f;
             float rampTop = rampStart + RampRun;
             float mergeEnd = rampTop + MergeLength;
-            float gapStart = SOnStraight(rampTop - 3f), gapEnd = SOnStraight(mergeEnd);
+            // both edge barriers open over the same stretches: [-mergeEnd, -rampTop+3] and [rampTop-3, mergeEnd]
+            var gaps = new[]
+            {
+                (SOnStraight(-mergeEnd), SOnStraight(-rampTop + 3f)),
+                (SOnStraight(rampTop - 3f), SOnStraight(mergeEnd)),
+            };
 
             // Deck (box girder) and road surfaces
             var deck = new SweepMesh();
@@ -158,20 +163,29 @@ namespace FortunerCity.City
             road.Extrude(0, path, 0f, L, RoadStrip, false, true, roadUv);
             road.Spawn("Carriageways", f, new[] { CityArt.Motorway }, false);
 
-            // Concrete barriers: median, outer edge, inner edge with a gap where the ramp merges
+            // Concrete barriers: median, and both edges with openings where the slip roads leave and join
             SweepMesh.UvFn barrierUv = (d, y, pl, s, th) => new Vector2(pl / 1.5f, (s - d * th) / 3f);
             var barriers = new SweepMesh();
             barriers.Extrude(0, path, 0f, L, MedianBarrier, false, false, barrierUv);
-            barriers.Extrude(0, path, 0f, L, EdgeBarrier, false, true, barrierUv, -RoadOuter);
-            barriers.Extrude(0, path, 0f, gapStart, EdgeBarrier, false, false, barrierUv, RoadOuter);
-            barriers.Cap(0, path, gapStart, EdgeBarrier, false, true, RoadOuter);
-            barriers.Extrude(0, path, gapEnd, L, EdgeBarrier, false, false, barrierUv, RoadOuter);
+            foreach (bool outer in new[] { false, true })
+            {
+                float off = outer ? -RoadOuter : RoadOuter, from = 0f;
+                foreach (var (a, b) in gaps)
+                {
+                    barriers.Extrude(0, path, from, a, EdgeBarrier, false, outer, barrierUv, off);
+                    barriers.Cap(0, path, a, EdgeBarrier, outer, true, off);
+                    barriers.Cap(0, path, b, EdgeBarrier, outer, false, off);
+                    from = b;
+                }
+                barriers.Extrude(0, path, from, L, EdgeBarrier, false, outer, barrierUv, off);
+            }
             barriers.Spawn("Barriers", f, new[] { CityArt.Barrier }, true);
 
-            // Hammerhead piers under the girder
+            // Hammerhead piers under the girder (none in the avenue that passes underneath)
             for (float at = 18f; at < L - 4f; at += 36f)
             {
                 var sm = path.At(at);
+                if (Mathf.Abs(sm.pos.x) < rampStart + 4f && sm.pos.z < -Ring + 1f) continue;
                 var pier = CityMesh.Spawn("Pier", f, PierMesh(), new[] { CityArt.Concrete },
                     new Vector3(sm.pos.x, 0f, sm.pos.z), Quaternion.LookRotation(sm.tangent), false);
                 var col = pier.AddComponent<BoxCollider>();
@@ -181,7 +195,7 @@ namespace FortunerCity.City
             }
 
             // Twin-arm lamp posts standing on the median barrier
-            float gantryX = Ring * 0.45f;
+            float gantryX = mergeEnd + 25f;    // after the entry, ahead of the other carriageway's exit
             float gantryS = SOnStraight(gantryX);
             var lampMats = new[] { CityArt.Steel, ProceduralCar.Shared()[(int)CarMat.Light] };
             for (float at = 12f; at < L - 6f; at += 45f)
@@ -193,10 +207,35 @@ namespace FortunerCity.City
             }
 
             BuildGantry(f, gantryX, SignText[sideIndex]);
-            SpeedSign(f, new Vector3(mergeEnd + 40f, DeckTop, -Ring + RoadOuter + 0.21f), true);
-            SpeedSign(f, new Vector3(-60f, DeckTop, -Ring - RoadOuter - 0.21f), false);
+            ConnectorAvenue(f);
 
-            BuildRamp(f, connectorX, rampStart, rampTop, mergeEnd);
+            // Slip roads for the inner carriageway; the outer carriageway gets the same layout turned 180° about the
+            // centre line (its traffic runs the other way on the other side of the deck)
+            BuildSlipRoads(f, rampStart, rampTop, mergeEnd);
+            var outerFrame = new GameObject("OuterSlipRoads").transform;
+            outerFrame.SetParent(f, false);
+            outerFrame.localPosition = new Vector3(0f, 0f, -2f * Ring);
+            outerFrame.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            BuildSlipRoads(outerFrame, rampStart, rampTop, mergeEnd);
+        }
+
+        /// <summary>
+        /// Central avenue carried on from the city's outer avenue, under the motorway, out past the outer slip roads:
+        /// three lanes each way with a painted median (no trees, they would hit the deck).
+        /// </summary>
+        static void ConnectorAvenue(Transform f)
+        {
+            float zStart = -(CityBuilder.Half + CityBuilder.AvenueWidth * 0.5f);
+            float zEnd = -Ring - DeckHalf - 2f * RampHalf - 30f;
+            float len = zStart - zEnd, w = CityBuilder.AvenueWidth;
+            var seg = new GameObject("InterchangeAvenue").transform;
+            seg.SetParent(f, false);
+            seg.localPosition = new Vector3(0f, 0f, (zStart + zEnd) * 0.5f);
+            CityMesh.SpawnBox("Base", seg, new Vector3(w, CityBuilder.RoadTop, len), Vector3.zero, CityArt.Asphalt, CityArt.Asphalt, true);
+            seg.GetChild(0).tag = "Road";
+            float cw = (w - CityBuilder.MedianWidth) * 0.5f, off = CityBuilder.MedianWidth * 0.5f + cw * 0.5f, y = CityBuilder.RoadTop + 0.012f;
+            CityMesh.SpawnQuad("LanesL", seg, CityArt.Road3, cw, len, cw, CityArt.RoadTileLength, new Vector3(-off, y, 0f), Quaternion.identity, true);
+            CityMesh.SpawnQuad("LanesR", seg, CityArt.Road3, cw, len, cw, CityArt.RoadTileLength, new Vector3(off, y, 0f), Quaternion.identity);
         }
 
         // ---------- gantry and signs ----------
@@ -363,53 +402,81 @@ namespace FortunerCity.City
             return p.Length;
         }
 
-        /// <summary>Connector street from the outer avenue to a ramp that climbs beside the deck and merges in.</summary>
-        static void BuildRamp(Transform f, float connectorX, float rampStart, float rampTop, float mergeEnd)
+
+        static Material _exitSign;
+
+        /// <summary>
+        /// Slip roads for traffic heading +X on the inner carriageway (the frame may be turned 180° for the outer one):
+        /// an exit that peels off the deck before the avenue and runs down to it, and an entry that climbs from the
+        /// avenue after it and merges in. Plus an EXIT sign ahead of the exit and a speed-limit sign between them.
+        /// </summary>
+        static void BuildSlipRoads(Transform f, float rampStart, float rampTop, float mergeEnd)
         {
-            float deckInner = -Ring + DeckHalf;
-            float rampZ = deckInner + RampHalf;
-            float avenueEdge = -(CityBuilder.Half + CityBuilder.AvenueWidth * 0.5f);
-            float connLen = avenueEdge - deckInner;
+            float rampZ = -Ring + DeckHalf + RampHalf;
+            float rail = RampHalf - 0.42f;
+            SweepMesh.UvFn uv = (d, y, pl, s, th) => new Vector2(pl / 1.5f, s / 3f);
 
-            // Ground connector (local Z is its length, so no rotation)
-            CityBuilder.RoadSegment(f, f, new Vector3(connectorX, 0f, (avenueEdge + deckInner) * 0.5f), connLen,
-                CityBuilder.StreetWidth, false, false, false, null);
+            // Entry: from the avenue (x = rampStart) up to the deck, merge taper to mergeEnd
+            var entry = RampPath(rampStart, mergeEnd, rampZ);
+            float eL = entry.Length, eTop = SAtX(entry, rampTop), eOpen = SAtX(entry, rampTop - 3f);
+            var rails = new SweepMesh();
+            rails.Extrude(0, entry, 12f, eTop, EdgeBarrier, false, false, uv, rail);
+            rails.Cap(0, entry, 12f, EdgeBarrier, false, false, rail);
+            rails.Extrude(0, entry, 12f, eOpen, EdgeBarrier, false, true, uv, -rail);
+            rails.Cap(0, entry, 12f, EdgeBarrier, true, false, -rail);
+            rails.Cap(0, entry, eOpen, EdgeBarrier, true, true, -rail);
+            var taperIn = SweepPath.Polyline(new Vector3(rampTop, DeckTop, rampZ + rail), new Vector3(mergeEnd, DeckTop, -Ring + RoadOuter));
+            rails.Extrude(0, taperIn, 0f, taperIn.Length, EdgeBarrier, false, false, uv);
 
-            var path = RampPath(rampStart, mergeEnd, rampZ);
-            float L = path.Length, sTop = SAtX(path, rampTop), sOpen = SAtX(path, rampTop - 3f);
+            // Exit: the entry mirrored along X (diverge taper at -mergeEnd, down to the avenue at -rampStart)
+            var exit = new SweepPath();
+            for (int i = entry.pos.Count - 1; i >= 0; i--)
+                exit.Add(new Vector3(-entry.pos[i].x, entry.pos[i].y, entry.pos[i].z));
+            float xL = exit.Length, xTop = SAtX(exit, -rampTop), xOpen = SAtX(exit, -rampTop + 3f);
+            rails.Extrude(0, exit, xTop, xL - 12f, EdgeBarrier, false, false, uv, rail);
+            rails.Cap(0, exit, xL - 12f, EdgeBarrier, false, true, rail);
+            rails.Extrude(0, exit, xOpen, xL - 12f, EdgeBarrier, false, true, uv, -rail);
+            rails.Cap(0, exit, xOpen, EdgeBarrier, true, false, -rail);
+            rails.Cap(0, exit, xL - 12f, EdgeBarrier, true, true, -rail);
+            var taperOut = SweepPath.Polyline(new Vector3(-mergeEnd, DeckTop, -Ring + RoadOuter), new Vector3(-rampTop, DeckTop, rampZ + rail));
+            rails.Extrude(0, taperOut, 0f, taperOut.Length, EdgeBarrier, false, false, uv);
+            rails.Spawn("SlipRoadBarriers", f, new[] { CityArt.Barrier }, true);
 
+            SlipRoadDeck(f, entry, "Entry", 2f, eTop);
+            SlipRoadDeck(f, exit, "Exit", xTop, xL - 2f);
+
+            // Signs: EXIT board ahead of the diverge, 120 limit on the edge barrier between the slip roads
+            float barrierZ = -Ring + RoadOuter + 0.21f;
+            var top = new Vector3(-mergeEnd - 35f, DeckTop + BarrierTop, barrierZ);
+            CityMesh.SpawnBox("ExitSignPost", f, new Vector3(0.1f, 2.4f, 0.1f), top, CityArt.Steel, CityArt.Steel, false);
+            _exitSign ??= SignArt.DirectionSign(new[] { "EXIT >", "CITY CENTRE" }, 2.4f);
+            CityMesh.Spawn("ExitSign", f, SignArt.Board(3.4f, 1.42f, 0.08f), new[] { _exitSign, CityArt.Steel },
+                top + new Vector3(-0.06f, 2.4f + 0.71f, -0.9f), Quaternion.Euler(0f, -90f, 0f), false);
+            SpeedSign(f, new Vector3(-100f, DeckTop, barrierZ), true);
+        }
+
+        /// <summary>Slab, asphalt, edge lines and piers of one slip road.</summary>
+        static void SlipRoadDeck(Transform f, SweepPath path, string name, float lineFrom, float lineTo)
+        {
+            float L = path.Length;
             var slab = new SweepMesh();
             slab.Extrude(0, path, 0f, L, RampProfile, true, false, (d, y, pl, s, th) => new Vector2(pl / 4f, s / 4f));
             slab.Cap(0, path, 0f, RampProfile, false, false);
             slab.Cap(0, path, L, RampProfile, false, true);
-            slab.Spawn("RampDeck", f, new[] { CityArt.Concrete }, true);
+            slab.Spawn(name + "Deck", f, new[] { CityArt.Concrete }, true);
 
             var surface = new SweepMesh();
             surface.Extrude(0, path, 0f, L, new[] { new Vector2(RampHalf - 0.42f, 0.008f), new Vector2(-RampHalf + 0.42f, 0.008f) },
                 false, false, (d, y, pl, s, th) => new Vector2(d / 4f, s / 4f));
-            surface.Spawn("RampSurface", f, new[] { CityArt.Asphalt }, false);
+            surface.Spawn(name + "Surface", f, new[] { CityArt.Asphalt }, false);
 
             var lines = new SweepMesh();
             foreach (float e in new[] { -3.2f, 3.2f })
-                lines.Extrude(0, path, 2f, sTop, new[] { new Vector2(e + 0.075f, 0.012f), new Vector2(e - 0.075f, 0.012f) },
+                lines.Extrude(0, path, lineFrom, lineTo, new[] { new Vector2(e + 0.075f, 0.012f), new Vector2(e - 0.075f, 0.012f) },
                     false, false, (d, y, pl, s, th) => new Vector2(d, s / 4f));
-            lines.Spawn("RampLines", f, new[] { CityArt.LinePaint }, false);
+            lines.Spawn(name + "Lines", f, new[] { CityArt.LinePaint }, false);
 
-            // Barriers start a little up the ramp so cars can turn in from the connector street
-            SweepMesh.UvFn uv = (d, y, pl, s, th) => new Vector2(pl / 1.5f, s / 3f);
-            var rails = new SweepMesh();
-            rails.Extrude(0, path, 12f, sTop, EdgeBarrier, false, false, uv, RampHalf - 0.42f);
-            rails.Cap(0, path, 12f, EdgeBarrier, false, false, RampHalf - 0.42f);
-            rails.Extrude(0, path, 12f, sOpen, EdgeBarrier, false, true, uv, -RampHalf + 0.42f);
-            rails.Cap(0, path, 12f, EdgeBarrier, true, false, -RampHalf + 0.42f);
-            rails.Cap(0, path, sOpen, EdgeBarrier, true, true, -RampHalf + 0.42f);
-            // Taper: the outer rail angles in to meet the deck's edge barrier, squeezing the merge lane to nothing
-            var taper = SweepPath.Polyline(new Vector3(rampTop, DeckTop, rampZ + RampHalf - 0.42f),
-                new Vector3(mergeEnd, DeckTop, -Ring + RoadOuter));
-            rails.Extrude(0, taper, 0f, taper.Length, EdgeBarrier, false, false, uv);
-            rails.Spawn("RampBarriers", f, new[] { CityArt.Barrier }, true);
-
-            // Piers wherever the ramp is high enough to need one
+            // piers wherever the slip road is high enough to need one
             for (float at = 30f; at < L - 4f; at += 24f)
             {
                 var sm = path.At(at);

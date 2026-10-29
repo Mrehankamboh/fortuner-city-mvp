@@ -233,7 +233,7 @@ namespace FortunerCity.AudioSys
         }
     }
 
-    /// <summary>Quiet 3D engine hum on AI traffic so the streets sound alive.</summary>
+    /// <summary>Quiet 3D engine hum for AI traffic. Not attached by default: only the vehicle the player drives is heard.</summary>
     public class TrafficAudio : MonoBehaviour
     {
         AudioSource _src;
