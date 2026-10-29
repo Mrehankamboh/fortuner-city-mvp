@@ -37,6 +37,59 @@ namespace FortunerCity.City
         public static Material Water => _water ??= Make(Noise(new Color(0.2f, 0.42f, 0.55f), 0.03f, 9), 0.3f, 0.9f);
         public static Material LinePaint => _linePaint ??= Make(Noise(new Color(0.88f, 0.88f, 0.86f), 0.03f, 10), 0f, 0.3f);
 
+        public const float MotorwayWidth = 14.95f;     // Motorway texture: median shoulder + 3 lanes + hard shoulder
+
+        static Material _motorway, _steel;
+
+        /// <summary>One motorway carriageway (u = 0 at the median side), 12 m per tile.</summary>
+        public static Material Motorway => _motorway ??= Make(MotorwayTex(), 0f, 0.28f);
+        /// <summary>Galvanised steel for lamp poles, gantries and sign posts.</summary>
+        public static Material Steel => _steel ??= Make(Noise(new Color(0.62f, 0.64f, 0.66f), 0.03f, 16), 0.55f, 0.45f);
+
+        /// <summary>
+        /// Across (metres from the median side): 1 m shoulder, yellow edge line, three 3.65 m lanes with dashed
+        /// dividers (3 m dash / 9 m gap), solid white edge line, rumble strip, 2.8 m hard shoulder. Tyre-polished
+        /// wheel tracks run down every lane.
+        /// </summary>
+        static Texture2D MotorwayTex() => Finish(NewTex(512, 512), MotorwayPixels());
+
+        static Color[] MotorwayPixels()
+        {
+            const int W = 512, H = 512;
+            var px = new Color[W * H];
+            var white = new Color(0.92f, 0.92f, 0.9f);
+            var yellow = new Color(0.93f, 0.76f, 0.18f);
+            for (int y = 0; y < H; y++)
+            {
+                float v = (y + 0.5f) / H;                // 0..1 along one 12 m tile
+                for (int x = 0; x < W; x++)
+                {
+                    float u = (x + 0.5f) / W * MotorwayWidth;
+                    float grain = (Hash(x, y, 70) - 0.5f) * 0.07f + (Hash(x / 6, y / 6, 71) - 0.5f) * 0.03f;
+                    float tone = 0.215f;
+                    if (u > 12.15f) tone = 0.235f;                          // older, lighter hard shoulder
+                    else if (u > 1f)
+                    {
+                        // wheel tracks: darker, smoother bands 0.85 m either side of each lane centre
+                        float lane = (u - 1f) % 3.65f - 1.825f;
+                        float track = Mathf.Min(Mathf.Abs(lane - 0.85f), Mathf.Abs(lane + 0.85f));
+                        tone -= Mathf.Clamp01(1f - track / 0.4f) * 0.02f;
+                        tone -= Mathf.Clamp01(1f - Mathf.Abs(lane) / 0.25f) * 0.012f;   // oil line
+                    }
+                    var c = new Color(tone + grain, tone + grain, tone * 1.04f + grain);
+                    Color? paint = null;
+                    if (Band(u, 0.85f, 0.15f)) paint = yellow;
+                    else if ((Band(u, 4.575f, 0.15f) || Band(u, 8.225f, 0.15f)) && v < 0.25f) paint = white;
+                    else if (Band(u, 11.95f, 0.2f)) paint = white;
+                    else if (Band(u, 12.3f, 0.4f) && (v * 30f) % 1f < 0.35f) c = Shade(c, 0.6f);   // rumble grooves
+                    if (paint.HasValue)
+                        c = Color.Lerp(paint.Value, c, 0.1f + Hash(x / 3, y / 3, 72) * 0.25f);
+                    px[y * W + x] = c;
+                }
+            }
+            return px;
+        }
+
         public static Material RandomGlass(System.Random rng)
         {
             if (_glass == null)

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace FortunerCity.Vehicle
 {
-    public enum CarMat { Paint, Black, Glass, Chrome, Light, Tail, Plate, Dark, Silver, Count }
+    public enum CarMat { Paint, Black, Glass, Chrome, Light, Tail, Plate, Dark, Silver, Amber, Count }
 
     /// <summary>
     /// Real-world description of one car model. Body = side profile extruded across the width with a
@@ -485,6 +485,7 @@ namespace FortunerCity.Vehicle
             _shared[(int)CarMat.Plate] = Make(new Color(0.95f, 0.95f, 0.92f), 0f, 0.4f);
             _shared[(int)CarMat.Dark] = Make(new Color(0.12f, 0.12f, 0.13f), 0.5f, 0.5f);
             _shared[(int)CarMat.Silver] = Make(new Color(0.72f, 0.73f, 0.75f), 0.85f, 0.75f);
+            _shared[(int)CarMat.Amber] = Make(new Color(0.95f, 0.5f, 0.05f), 0.2f, 0.9f, new Color(0.35f, 0.15f, 0f));
             return _shared;
         }
 

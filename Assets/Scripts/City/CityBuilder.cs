@@ -380,9 +380,10 @@ namespace FortunerCity.City
                 }
                 // arc around the next corner
                 Vector2 arcCenter = end + dirNext * cornerRadius;
-                for (int s = 0; s < 6; s++)
+                int arcN = Mathf.Max(6, Mathf.RoundToInt(cornerRadius * Mathf.PI * 0.5f / spacing));
+                for (int s = 0; s < arcN; s++)
                 {
-                    float t = s / 6f * Mathf.PI * 0.5f;
+                    float t = s / (float)arcN * Mathf.PI * 0.5f;
                     var p = arcCenter - dirNext * (cornerRadius * Mathf.Cos(t)) + dir * (cornerRadius * Mathf.Sin(t));
                     pts.Add(new Vector3(p.x, y, p.y));
                 }
