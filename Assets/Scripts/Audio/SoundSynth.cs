@@ -25,7 +25,8 @@ namespace FortunerCity.AudioSys
             public bool turbo;
         }
 
-        public const int Layers = 4;
+        public const int Layers = 7;
+        const int EngineRate = 32000;          // engine loops: plenty for exhaust sound, keeps the 12 loops quick to render
 
         public static EngineVoice Voice(EngineSound e)
         {
@@ -53,12 +54,12 @@ namespace FortunerCity.AudioSys
             }
         }
 
-        /// <summary>Rpm each layer is recorded at: idle, 30 %, 62 %, 92 % of the rev range.</summary>
+        /// <summary>Rpm each layer is recorded at: idle, then 8 … 92 % of the rev range. Close layers keep pitch-shifting small (no "chipmunk" sound).</summary>
         public static float LayerRpm(EngineVoice v, int layer)
         {
             if (layer <= 0) return v.idleRpm;
-            float[] f = { 0.3f, 0.62f, 0.92f };
-            return Mathf.Lerp(v.idleRpm, v.redRpm, f[Mathf.Min(layer, 3) - 1]);
+            float[] f = { 0.08f, 0.2f, 0.35f, 0.52f, 0.72f, 0.92f };
+            return Mathf.Lerp(v.idleRpm, v.redRpm, f[Mathf.Min(layer, f.Length) - 1]);
         }
 
         /// <summary>RBJ band-pass biquad — gives each firing pulse its exhaust "ring".</summary>
@@ -101,7 +102,8 @@ namespace FortunerCity.AudioSys
             if (Cache.TryGetValue(key, out var cached)) return cached;
             float rpm = LayerRpm(Voice(e), layer);
             int seed = ((int)e + 1) * 97 + layer * 13 + (onLoad ? 1 : 0);
-            return Store(key, EngineModel.RenderLoop(EngineModel.VoiceFor(e), rpm, onLoad ? 1f : 0.05f, Rate, 1f, seed));
+            // 1.5 s loops so the repeat isn't noticeable
+            return Store(key, EngineModel.RenderLoop(EngineModel.VoiceFor(e), rpm, onLoad ? 1f : 0.05f, EngineRate, 1.5f, seed), EngineRate);
         }
 
         // ---------- driving ambience ----------
@@ -333,9 +335,9 @@ namespace FortunerCity.AudioSys
             return Store(key, build());
         }
 
-        static AudioClip Store(string key, float[] data)
+        static AudioClip Store(string key, float[] data, int rate = Rate)
         {
-            var clip = AudioClip.Create(key, data.Length, 1, Rate, false);
+            var clip = AudioClip.Create(key, data.Length, 1, rate, false);
             clip.SetData(data, 0);
             Cache[key] = clip;
             return clip;

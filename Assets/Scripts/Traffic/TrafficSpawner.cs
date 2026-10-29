@@ -14,15 +14,19 @@ namespace FortunerCity.Traffic
             var list = new List<GameObject>();
             if (loops == null || loops.Count == 0) return list;
 
-            int perLoop = Mathf.Max(1, totalCars / loops.Count);
+            // share the cars out by loop length so long roads aren't empty and short ones aren't jammed
+            var lengths = new float[loops.Count];
+            float sum = 0f;
+            for (int li = 0; li < loops.Count; li++) { lengths[li] = LoopLength(loops[li]); sum += lengths[li]; }
             int spawned = 0;
             var rng = new System.Random(7);
 
             for (int li = 0; li < loops.Count; li++)
             {
                 var path = loops[li];
-                int count = (li == loops.Count - 1) ? (totalCars - spawned) : perLoop;
-                count = Mathf.Min(count, path.points.Count);
+                int count = li == loops.Count - 1 ? totalCars - spawned : Mathf.RoundToInt(totalCars * lengths[li] / Mathf.Max(1f, sum));
+                count = Mathf.Min(count, path.points.Count, Mathf.FloorToInt(lengths[li] / MinGap));
+                if (count <= 0) continue;
                 for (int i = 0; i < count; i++)
                 {
                     int idx = (i * path.points.Count / count) % path.points.Count;
@@ -47,6 +51,16 @@ namespace FortunerCity.Traffic
             }
 
             return list;
+        }
+
+        const float MinGap = 25f;   // metres between spawned cars on one loop
+
+        static float LoopLength(WaypointPath p)
+        {
+            float len = 0f;
+            for (int i = 0; i < p.points.Count; i++)
+                len += Vector3.Distance(p.GetPoint(i), p.GetPoint(p.NextIndex(i)));
+            return len;
         }
 
         /// <summary>Random real-size procedural car (Haval / Range Rover / Land Cruiser… styles) in a factory colour.</summary>

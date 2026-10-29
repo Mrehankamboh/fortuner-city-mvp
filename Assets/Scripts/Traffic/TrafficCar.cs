@@ -29,6 +29,10 @@ namespace FortunerCity.Traffic
         Rigidbody _rb;
         float _currentSpeed;
         float _laneShift, _laneShiftTarget, _blockedTime, _clearTime;
+        Renderer[] _renderers;
+        float _cullTimer;
+        bool _shown = true;
+        const float DrawDistance = 280f;   // cars further than this are not drawn (keeps heavy traffic cheap)
 
         public void Init(WaypointPath p, float spd, int startIndex)
         {
@@ -40,11 +44,36 @@ namespace FortunerCity.Traffic
             _rb.isKinematic = true;
             _rb.useGravity = false;
             tag = "TrafficCar";
+            _renderers = GetComponentsInChildren<Renderer>(true);
+            _cullTimer = Random.value * 0.25f;
+        }
+
+        void UpdateCulling(float dt)
+        {
+            _cullTimer -= dt;
+            if (_cullTimer > 0f) return;
+            _cullTimer = 0.25f;
+            var cam = Camera.main;
+            bool show = cam == null || (cam.transform.position - transform.position).sqrMagnitude < DrawDistance * DrawDistance;
+            if (show != _shown) SetShown(show);
+        }
+
+        void SetShown(bool show)
+        {
+            _shown = show;
+            if (_renderers == null) return;
+            foreach (var r in _renderers) if (r != null) r.enabled = show;
+        }
+
+        void OnDisable()
+        {
+            if (!_shown) SetShown(true);   // taken over by the player or wrecked: always drawn again
         }
 
         void Update()
         {
             if (path == null || path.points.Count == 0) return;
+            UpdateCulling(Time.deltaTime);
             float dt = Time.deltaTime;
 
             // Stop for vehicles and the walking player ahead — not barriers or lamp posts on corners

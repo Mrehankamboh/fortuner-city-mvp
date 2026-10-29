@@ -19,7 +19,7 @@ namespace FortunerCity.Core
     public class GameBootstrap : MonoBehaviour
     {
         [Header("Traffic")]
-        public int trafficCount = 30;
+        public int trafficCount = 110;
 
         void Awake()
         {

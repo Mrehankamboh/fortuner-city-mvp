@@ -6,7 +6,7 @@ namespace FortunerCity.AudioSys
     /// <summary>
     /// Player vehicle sound, mixed like a racing game:
     /// - engine = live physical model (EngineSynth) fed with rpm + load every frame; in WebGL, where live
-    ///   audio isn't available, 4 rpm layers × on/off throttle pre-rendered from the same model
+    ///   audio isn't available, 7 rpm layers × on/off throttle pre-rendered from the same model
     /// - simulated gearbox (rpm climbs, drops ~1/3 on each up-shift with a throttle cut)
     /// - turbo whistle + blow-off (diesel), exhaust pops on lift-off (V8 / V10 / sports bike)
     /// - tyre roar and wind that grow with speed, tyre squeal on handbrake / hard cornering
@@ -30,6 +30,7 @@ namespace FortunerCity.AudioSys
         SoundSynth.EngineVoice _voice;
         int _gears = 6, _gear = 1;
         float _rpm, _shiftTimer, _startTimer, _load, _prevThrottle, _blowCooldown, _popTimer, _skidVol;
+        float _wobble, _wobbleTarget, _wobbleTimer, _boost;
         bool _bike, _pops;
 
         public static VehicleAudio Attach(GameObject car, PlayerDriveController drive)
@@ -142,6 +143,16 @@ namespace FortunerCity.AudioSys
             float rpmFrac = Mathf.InverseLerp(_voice.idleRpm, _voice.redRpm, _rpm);
             drive.displayGear = spd < 1f ? 0 : _gear;
 
+            // --- a real engine never holds a perfectly steady rpm: small wander, strongest at idle
+            _wobbleTimer -= dt;
+            if (_wobbleTimer <= 0f)
+            {
+                _wobbleTimer = Random.Range(0.08f, 0.25f);
+                _wobbleTarget = (Random.value - 0.5f) * 2f * Mathf.Lerp(0.014f, 0.003f, rpmFrac);
+            }
+            _wobble = Mathf.Lerp(_wobble, _wobbleTarget, 1f - Mathf.Exp(-6f * dt));
+            float heardRpm = _rpm * (1f + _wobble);
+
             // --- load: on-throttle vs overrun (idling counts as steady load)
             float idleLoad = 1f - Mathf.InverseLerp(_layerRpm[0], _layerRpm[1], _rpm);
             float wantLoad = _shiftTimer > 0f ? 0f : Mathf.Max(throttle, idleLoad);
@@ -156,18 +167,18 @@ namespace FortunerCity.AudioSys
             {
                 // live model: it follows rpm and load itself (fixed exhaust resonances, no pitch-shifting)
                 var m = _synth.model;
-                m.targetRpm = _rpm;
+                m.targetRpm = heardRpm;
                 m.targetLoad = _shiftTimer > 0f ? 0f : Mathf.Max(throttle, idleLoad * 0.5f);
                 m.interior = cabin;
                 m.gain = master * 0.75f;
             }
             else
             {
-                // WebGL fallback — 8 loops: triangular rpm weights × load weights
+                // WebGL fallback — 14 loops: equal-power rpm cross-fades (no volume dip between layers) × load
                 for (int l = 0; l < SoundSynth.Layers; l++)
                 {
-                    float w = LayerWeight(l);
-                    float pitch = Mathf.Clamp(_rpm / _layerRpm[l], 0.5f, 2.2f);
+                    float w = Mathf.Sqrt(LayerWeight(l));
+                    float pitch = Mathf.Clamp(heardRpm / _layerRpm[l], 0.5f, 2.2f);
                     _on[l].pitch = _off[l].pitch = pitch;
                     _on[l].volume = master * w * _load * (cabin ? 0.7f : 1f);
                     _off[l].volume = master * w * (1f - _load) * 0.6f * (cabin ? 0.7f : 1f);
@@ -177,8 +188,11 @@ namespace FortunerCity.AudioSys
             // --- turbo whistle, blow-off, lift-off pops
             if (_turbo != null)
             {
-                _turbo.pitch = 0.6f + rpmFrac * 0.9f;
-                _turbo.volume = Mathf.Clamp01(throttle * rpmFrac * 1.3f) * 0.16f;
+                // boost builds up with a little lag and drops quickly when the throttle closes
+                float wantBoost = Mathf.Clamp01(throttle * Mathf.InverseLerp(0.15f, 0.7f, rpmFrac) * 1.2f);
+                _boost = Mathf.MoveTowards(_boost, wantBoost, (wantBoost > _boost ? 1.4f : 4f) * dt);
+                _turbo.pitch = 0.55f + _boost * 0.6f + rpmFrac * 0.35f;
+                _turbo.volume = _boost * 0.17f;
             }
             _blowCooldown -= dt;
             bool liftOff = _prevThrottle > 0.6f && throttle < 0.1f && rpmFrac > 0.35f;

@@ -113,6 +113,11 @@ namespace FortunerCity.City
                 MakeLoop(root, "Loop_Avenue_CW", Half + AvenueMidLane, RoadTop, true, 8f, 8f),
                 MakeLoop(root, "Loop_Street128", Line(6) - StreetLane, RoadTop, false, 4f, 8f),
                 MakeLoop(root, "Loop_Street64", Line(5) + StreetLane, RoadTop, true, 4f, 8f),
+                // the other direction on the same ring streets, plus the outer ring street at ±192 m
+                MakeLoop(root, "Loop_Street64_CCW", Line(5) - StreetLane, RoadTop, false, 4f, 8f),
+                MakeLoop(root, "Loop_Street128_CW", Line(6) + StreetLane, RoadTop, true, 4f, 8f),
+                MakeLoop(root, "Loop_Street192_CCW", Line(7) - StreetLane, RoadTop, false, 4f, 8f),
+                MakeLoop(root, "Loop_Street192_CW", Line(7) + StreetLane, RoadTop, true, 4f, 8f),
             };
             loops.AddRange(motorwayLoops);
 
